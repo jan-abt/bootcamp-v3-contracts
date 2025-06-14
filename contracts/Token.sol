@@ -2,9 +2,19 @@
 pragma solidity 0.8.28;
 
 contract Token {
-    // state variable: 
-    // permanently writes a value assigned to  "name", to the blockchain 
-    string public name = "My Token";
+    // state variables : 
+    // permanently writes values to the blockchain 
+    string public name;
+    string public symbol;
+    uint8  public decimals = 18;
+    uint256 public totalSupply;
 
-
+    constructor(
+        string memory _name, 
+        string memory _symbol, 
+        uint256 _totalSupply){
+            name = _name;
+            symbol = _symbol;
+            totalSupply = _totalSupply  * (10 ** decimals); // in base units (for ETH, wei)
+    }
 }
