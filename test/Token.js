@@ -104,7 +104,7 @@ describe("Token", () => {
                 
             })
                 
-            it("rejects invalid ercipient", async() =>{
+            it("rejects invalid recipient", async() =>{
 
                 const { token, deployer, receiver } = await loadFixture(deployTokenFixture)   
                 
@@ -119,6 +119,53 @@ describe("Token", () => {
         })
 
      })
+
+      describe("Approving Tokens", ()=>{
+         const AMOUNT = tokens(100)
+         
+         describe("Success", ()=>{
+             it("allows for delegated token spending", async() =>{
+
+                const { token, deployer, exchange } = await loadFixture(deployTokenFixture)   
+
+                const transaction = await token.connect(deployer).approve(exchange.address, AMOUNT)
+                // Ensure the transaction is confirmed (mined) before we check the results.
+                await transaction.wait()
+
+                expect(await token.allowance(deployer.address, exchange.address)).to.equal(AMOUNT)                
+
+            })
+            it("emits approval event", async() =>{
+
+                const { token, deployer, exchange } = await loadFixture(deployTokenFixture)   
+
+                const transaction = await token.connect(deployer).approve(exchange.address, AMOUNT)
+                // Ensure the transaction is confirmed (mined) before we check the results.
+                await transaction.wait()
+
+                await expect(transaction).to.emit(token, "Approval")
+                        .withArgs(deployer.address, exchange.address, AMOUNT)
+                
+
+            })
+            
+         })
+         
+         describe("Failiure", ()=>{
+              it("rejects invalid spender", async() =>{
+
+                const { token, deployer } = await loadFixture(deployTokenFixture)   
+                
+                const INVALID_SPENDER_ADDRESS = "0x0000000000000000000000000000000000000000"
+                const ERROR = "Token: Spender is address 0"
+                
+                await expect(token.connect(deployer).approve(INVALID_SPENDER_ADDRESS, AMOUNT))
+                .to.be.revertedWith(ERROR)
+                
+            })
+         })
+
+      })
 
     
 })
