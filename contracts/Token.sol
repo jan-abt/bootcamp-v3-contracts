@@ -35,24 +35,32 @@ contract Token {
     function transfer(
         address _to, 
         uint256 _value) public returns (bool success){
-
-            // 0. Check sufficient funds
-            require(balanceOf[msg.sender] >= _value, "Token: Insufficient Funds");
-            // Someone could accidentally or maliciously do:
-            // token.transfer("0x0000000000000000000000000000000000000000", 1000)
-            // And the tokens would go to an irretrievable black hole — lost forever !
-            require(_to != address(0), "Recipient Token is address 0");
-
-            // 1. Deduct tokens from sender
-            balanceOf[msg.sender] -= _value;
             
-            // 2. Credit tokens to recipient
-            balanceOf[_to] += _value;
-
-            // 3. Emit/Broadcast the transfer event
-            emit Transfer(msg.sender, _to, _value);
+            _transfer(msg.sender, _to, _value);
 
             return true;
+    }
+
+
+    function _transfer(address _from, address _to, uint256 _value) internal {
+        
+        // 1. Check sufficient funds
+        require(balanceOf[_from] >= _value, "Token: Insufficient Funds");        
+
+        // Someone could accidentally or maliciously do:
+        // token.transfer("0x0000000000000000000000000000000000000000", 1000)
+        // And the tokens would go to an irretrievable black hole — lost forever !
+        require(_to != address(0), "Recipient Token is address 0");
+
+        // 2. Deduct tokens from sender
+        balanceOf[_from] -= _value;
+        
+        // 3. Credit tokens to recipient
+        balanceOf[_to] += _value;
+
+        // 4. Emit/Broadcast the transfer event
+        emit Transfer(_from, _to, _value);
+
     }
 
     function approve(
@@ -65,6 +73,22 @@ contract Token {
             allowance[msg.sender][_spender] = _value;
 
             emit Approval(msg.sender, _spender, _value);
+            return true;
+
+    }
+
+    function transferFrom(
+        address _from, 
+        address _to, 
+        uint256 _value) public returns (bool success){
+
+            require(_value <= balanceOf[_from], "Token: Insufficient Funds");
+            require(_value <=  allowance[_from][msg.sender], "Token: Exceeded Allowance");
+
+            allowance[_from][msg.sender] -= _value;
+
+            _transfer(_from, _to, _value);
+
             return true;
 
     }
