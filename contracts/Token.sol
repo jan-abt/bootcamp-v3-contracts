@@ -9,6 +9,8 @@ contract Token {
     uint8  public decimals = 18;
     uint256 public totalSupply;
 
+    mapping(address => uint256) public balanceOf;
+
     constructor(
         string memory _name, 
         string memory _symbol, 
@@ -16,5 +18,6 @@ contract Token {
             name = _name;
             symbol = _symbol;
             totalSupply = _totalSupply  * (10 ** decimals); // in base units (for ETH, wei)
+            balanceOf[msg.sender] = totalSupply; // msg is a global variable inside Solidity
     }
 }
