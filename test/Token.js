@@ -1,11 +1,8 @@
 const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers")
 const { expect } = require("chai")
 const { ethers } = require("hardhat")
-const { deployTokenFixture, transferFromTokenFixture } = require("./helpers/TokenFixtures")
+const { tokens, deployTokenFixture, transferFromTokenFixture } = require("./helpers/TokenFixtures")
 
-const tokens = (n) => {
-    return  ethers.parseUnits(n.toString(), 18)
-}
 
 describe("Token", () => {
 

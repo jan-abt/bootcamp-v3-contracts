@@ -1,4 +1,8 @@
 
+const tokens = (n) => {
+    return  ethers.parseUnits(n.toString(), 18)
+}
+
 async function deployTokenFixture(){
 
       const Token = await ethers.getContractFactory("Token")
@@ -31,6 +35,7 @@ async function transferFromTokenFixture(){
 }
 
 module.exports = {
+    tokens,
     deployTokenFixture,
     transferFromTokenFixture
 }
