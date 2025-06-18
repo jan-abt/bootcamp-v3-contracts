@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
+import {Token} from "./Token.sol";
+
 // TODO: On the Exchange 
 // 1. Depoist Tokens 
 // 2. Withdraw Tokens
@@ -12,12 +14,57 @@ pragma solidity 0.8.28;
 // 8. Track Fee Accounts ☑️
 
 contract Exchange {
+    // state variables
     address public  feeAccount;
     uint256 public feePercent;
+
+    // total tokens belonging to a user
+    // token address     
+    mapping( address => 
+        // user address
+        mapping(address => uint256)) 
+            private userTotalTokenBalance;
+
+    event TokensDeposited(
+        address token, 
+        address user, 
+        uint256 amount, 
+        uint256 balance
+    );
 
     constructor( address _feeAccount, uint256 _feePercent ){
         feeAccount = _feeAccount;
         feePercent = _feePercent;
+    }
+
+    // --------------
+    // DEPOSIT & WITHDRWA TOKENS
+
+    function depositToken(address _token, uint256 _amount) public{
+        
+        // take token out of user's wallet
+        require(
+            Token (_token).transferFrom(msg.sender, address(this), _amount),
+            "Exchange Token transfer failed"
+        );
+
+        //  update user's balance
+        userTotalTokenBalance[_token][msg.sender] += _amount;
+
+        //  emit event
+        emit TokensDeposited(
+            _token, 
+            msg.sender, 
+            _amount, 
+            userTotalTokenBalance[_token][msg.sender]
+        );
+    }
+
+    function totalBalanceOf(
+        address _token, 
+        address _user) public view returns (uint256){
+            return userTotalTokenBalance[_token][_user];
+
     }
 
 }
