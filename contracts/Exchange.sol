@@ -2,18 +2,9 @@
 pragma solidity 0.8.28;
 
 import {Token} from "./Token.sol";
+import {FlashLoanProvider} from "./FlashLoanProvider.sol";
 
-// TODO: On the Exchange
-// 1. Depoist Tokens
-// 2. Withdraw Tokens
-// 3. Check Balances
-// 4. Make Orders
-// 5. Cancel Orders
-// 6. Fill Orders
-// 7. Charge Fees
-// 8. Track Fee Accounts ☑️
-
-contract Exchange {
+contract Exchange is FlashLoanProvider {
     // state variables
     address public feeAccount;
     uint256 public feePercent;
@@ -95,7 +86,7 @@ contract Exchange {
     }
 
     // --------------
-    // DEPOSIT & WITHDRWA TOKENS
+    // DEPOSIT & WITHDRAW TOKENS
 
     function depositToken(address _token, uint256 _amount) public {
         // take token out of user's wallet
@@ -251,14 +242,7 @@ contract Exchange {
 
     }
 
-    function _trade(
-        uint256 _orderId,
-        address _user,
-        address _tokenGet,
-        uint256 _amountGet,
-        address _tokenGive,
-        uint256 _amountGive
-    ) internal {
+    function _trade( uint256 _orderId, address _user, address _tokenGet, uint256 _amountGet, address _tokenGive, uint256 _amountGive ) internal {
 
         // Fee is paid by the user who filled the order (msg.sender)
         // Fee is deducted from _amountGet 
