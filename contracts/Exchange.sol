@@ -21,6 +21,7 @@ contract Exchange {
 
     // Mappings
     mapping(uint256 => Order) public orders;
+    mapping(uint256 => bool) public isOrderCancelled;
 
     // total tokens belonging to a user
     // (token address mapping -> user address mapping)
@@ -47,6 +48,16 @@ contract Exchange {
     );
 
     event OrderCreated(
+        uint256 id,
+        address user,
+        address tokenGet,
+        uint256 amountGet,
+        address tokenGive,
+        uint256 amountGive,
+        uint256 timestamp
+    );
+
+    event OrderCancelled(
         uint256 id,
         address user,
         address tokenGet,
@@ -93,20 +104,13 @@ contract Exchange {
         );
     }
 
-    function totalBalanceOf(
-        address _token,
-        address _user
-    ) public view returns (uint256) {
+    function totalBalanceOf( address _token, address _user) public view returns (uint256) {
         return userTotalTokenBalance[_token][_user];
     }
 
-    function activeBalanceOf(
-        address _token,
-        address _user
-    ) public view returns (uint256) {
+    function activeBalanceOf( address _token, address _user ) public view returns (uint256) {
         return userActiveTokenBalance[_token][_user];
     }
-
 
     function withdrawToken(address _token, uint256 _amount) public {
         require(
@@ -134,12 +138,7 @@ contract Exchange {
     // ---------------------
     // MAKE & CANCEL ORDERS
 
-    function makeOrder(
-        address _tokenGet,
-        uint256 _amountGet,
-        address _tokenGive,
-        uint256 _amountGive
-    ) public {
+    function makeOrder( address _tokenGet, uint256 _amountGet, address _tokenGive, uint256 _amountGive ) public {
         require(
             totalBalanceOf(_tokenGive, msg.sender) >=  activeBalanceOf(_tokenGive, msg.sender) + _amountGive,
             "Exchange: Insufficient balance"
@@ -171,5 +170,36 @@ contract Exchange {
             _amountGive,
             block.timestamp
         );
+    }
+
+    function cancelOrder(uint256 _orderId) public {
+
+        // Fetch the order
+        Order storage order = orders[_orderId];
+
+        // Order must exist
+        require(order.id == _orderId, "Exchange: Order does not exist");
+
+        // Ensure that the caller of the function is the owner of the order
+        require(address(order.user) == msg.sender, "Exchange: Not the owner");
+
+        // Cancel the order
+        isOrderCancelled[_orderId] = true;
+
+        // Update the user's active balance
+        userActiveTokenBalance[order.tokenGive][order.user] -= order.amountGive;
+
+         // Emit the event
+        emit OrderCancelled(
+            order.id,
+            msg.sender,
+            order.tokenGet,
+            order.amountGet,
+            order.tokenGive,
+            order.amountGive,
+            block.timestamp
+        );
+
+
     }
 }

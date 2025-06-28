@@ -4,6 +4,7 @@ const { ethers } = require("hardhat")
 const { tokens, deployExchangeFixture, depositExchangeFixture, orderExchangeFixture} = require("./helpers/ExchangeFixtures")
 
 describe("Exchange", () => {
+
     describe("Deployment",()=>{
         
         it("tracks the fee account", async() =>{
@@ -100,8 +101,6 @@ describe("Exchange", () => {
         })
     })
 
-
-
     describe("Making Orders", ()=>{
 
       describe("Success",()=>{
@@ -152,4 +151,84 @@ describe("Exchange", () => {
         })
     })
 
-})
+    describe("Cancelling Orders", ()=>{
+
+        describe("Success",()=>{
+        
+            it("updates cancelled orders", async() =>{
+                    const { exchange, accounts } = await loadFixture(orderExchangeFixture)   
+                    const transaction = await exchange.connect(accounts.user1).cancelOrder(1)
+                    await transaction.wait()
+                    
+                    expect(await exchange.isOrderCancelled(1)).to.equal(true)              
+                
+            })
+            it("emits an OrderCancelled event", async() =>{
+               const {tokens:{ token0, token1 }, exchange, accounts} = await loadFixture(orderExchangeFixture)                
+               
+               const transaction = await exchange.connect(accounts.user1).cancelOrder(1)
+               await transaction.wait()
+
+               const ORDER_ID = 1
+               const AMOUNT = tokens(1)
+               const { timestamp } = await ethers.provider.getBlock()
+
+               await expect(transaction).to.emit(exchange, "OrderCancelled")
+                .withArgs(
+                        ORDER_ID,
+                        accounts.user1.address,
+                        await token1.getAddress(),
+                        AMOUNT,
+                        await token0.getAddress(),
+                        AMOUNT,
+                        timestamp
+                    )
+            })
+                    
+        })
+     
+        describe("Failiure",()=>{
+            
+            it("Rejects invalid order ids", async() =>{
+                const {exchange, accounts} = await loadFixture(orderExchangeFixture)
+                const ERROR = "Exchange: Order does not exist"
+
+                await expect(exchange.connect(accounts.user1).cancelOrder(99999)).to.be.revertedWith(ERROR)
+             
+            })
+          
+            it("Rejects unauthorized cancellations", async() =>{
+                const {exchange, accounts} = await loadFixture(orderExchangeFixture)
+                const ERROR = "Exchange: Not the owner"
+
+                await expect(exchange.connect(accounts.user2).cancelOrder(1)).to.be.revertedWith(ERROR)
+             
+            })
+             
+        })
+    })
+
+    describe("Test Template", ()=>{
+
+        describe("Success",()=>{
+        
+            it("Accepts", async() =>{
+                    const { exchange } = await loadFixture(orderExchangeFixture)   
+                    expect(await exchange.orderCount()).to.equal(1)              
+                
+            })
+            it("emits an event", async() =>{
+              
+                    
+            })
+        })    
+        describe("Failiure",()=>{
+            
+            it("Rejects ", async() =>{
+             
+            })
+             
+        })
+    })
+
+})   
