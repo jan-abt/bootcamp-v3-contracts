@@ -89,8 +89,12 @@ contract Exchange is FlashLoanProvider {
     // DEPOSIT & WITHDRAW TOKENS
 
     function depositToken(address _token, uint256 _amount) public {
-        // take token out of user's wallet
+        
+         // Interact with an existing Token contract at address _token
         require(
+            // Token(_token): treats the address _token as a contract of type Token. 
+            //                This allows us to call functions on it.
+            // msg.sender: refers to the user who called this function, depositToken
             Token(_token).transferFrom(msg.sender, address(this), _amount),
             "Exchange Token transfer failed"
         );

@@ -1,16 +1,23 @@
 #!/bin/bash
 
 ########################################
-#  * Seed data
+#  * Run Hardhat Test framework
 ########################################
-
 
 # Exit script if any command fails
 set -e
 
 # set -x  # print each command before executing (for debugging)
 
-printf "\n  Running seed script...\n\n"
-npx hardhat run scripts/seed.js --network localhost
+printf "\nRunning Tests .."
 
-printf "\n👍 Seed script ran successfully.\n"
+npx hardhat test test/Token.js
+
+npx hardhat test test/Exchange.js
+
+npx hardhat test test/FlashLoanProvider.js
+
+
+
+
+

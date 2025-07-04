@@ -39,5 +39,5 @@ npx hardhat ignition deploy ignition/modules/Exchange.js --network localhost
 
 npx hardhat ignition deploy ignition/modules/FlashLoanUser.js --network localhost
 
-printf "\n👍 Run script completed successfully.\n"
+printf "\n👍 Run script ran successfully.\n\n"
 
