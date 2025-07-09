@@ -41,3 +41,10 @@ npx hardhat ignition deploy ignition/modules/FlashLoanUser.js --network localhos
 
 printf "\n👍 Run script ran successfully.\n\n"
 
+
+
+# npx hardhat ignition deploy ignition/modules/Token.js --network tenderly
+
+# npx hardhat ignition deploy ignition/modules/Exchange.js --network tenderly
+
+# npx hardhat ignition deploy ignition/modules/FlashLoanUser.js --network tenderly
