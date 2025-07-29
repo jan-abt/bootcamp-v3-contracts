@@ -4,7 +4,7 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 
 
-module.exports = buildModule("UserModule", (m) => {
+module.exports = buildModule("FlashLoanUserModule", (m) => {
 
   const USER = m.getAccount(2)
   const EXCHANGE_ADDRESS =  "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"

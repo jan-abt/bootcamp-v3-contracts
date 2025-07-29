@@ -10,24 +10,23 @@ module.exports = buildModule("TokenModule", (m) => {
   const DEPLOYER =  m.getAccount(0)
   
   
-  const DAPP = m.contract(
+  const dApp = m.contract(
     "Token", 
     ["Dapp University", "DAPPU", TOTAL_SUPPLY], 
     {from: DEPLOYER, id: "DAPP"}
   );
   
-  const mUSDC = m.contract(
+  const mUsdc = m.contract(
     "Token", 
     ["Mock USDC", "mUSDC", TOTAL_SUPPLY], 
     {from: DEPLOYER, id: "mUSDC"}
   );
   
-  const mLINK = m.contract(
+  const mLink = m.contract(
     "Token", 
     ["Mock Link", "mLINK", TOTAL_SUPPLY], 
     {from: DEPLOYER, id: "mLINK"}
   );
 
   
-  return { DAPP, mUSDC, mLINK};
-});
+return { DAPP: dApp, mLINK: mLink, mUSDC: mUsdc };});

@@ -25,8 +25,16 @@ This project demonstrates a basic Hardhat use case. It comes with a sample contr
 #### `npx hardhat clean && npx hardhat compile`
 * cleanup & recompile
 
-#### `./deploy.sh` and `./seed.sh`
-* run those scripts to start a local hardhat blockchain node, deploy contracts on it and fund accounts
+#### `npx hardhat console --network sepolia`
+  ```
+      Welcome to Node.js v20.18.0.
+      Type ".help" for more information.
+    > await ethers.getSigners().then(signers => signers[0].address)
+  ```
+
+#### `./deploy.sh` and `./seed.sh` with args `localhost`|`sepolia`
+* run those scripts to start a local hardhat blockchain node and deploy contracts on it, or and deploy contracts to sepolia "
+* transfer funds (presupposes that accounts have been pre-funded minimally to do so)
 
 <br>
 

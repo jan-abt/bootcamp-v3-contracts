@@ -12,14 +12,18 @@ function wait(seconds) {
 
 async function main() {
 
-    const addresses = JSON.parse(await fs.readFile('./ignition/deployments/chain-31337/deployed_addresses.json', 'utf8'));
-
+    console.log("Network ID:", hre.network.id, "Network Name:", hre.network.name);
+    const chainId = hre.network.id || (hre.network.name === "sepolia" ? 11155111 : hre.network.name === "localhost" ? 31337 : hre.network.name);
+    const chainFolder = `chain-${chainId}`;
+    console.log("Using chainFolder:", chainFolder);
+    const addresses = JSON.parse(await fs.readFile(`./ignition/deployments/${chainFolder}/deployed_addresses.json`, 'utf8'));
+    
     // Hardcoded contract addresses; these must match the actual deployment addresses on the local network for the script to work correctly.
     const DAPP_ADDRESS = addresses["TokenModule#DAPP"]
     const mUSDC_ADDRESS = addresses["TokenModule#mUSDC"]
     const mLINK_ADDRESS = addresses["TokenModule#mLINK"]
     const EXCHANGE_ADDRESS = addresses["ExchangeModule#Exchange"]
-    const FLASH_LOAN_USER_ADDRESS = addresses["UserModule#FlashLoanUser"]
+    const FLASH_LOAN_USER_ADDRESS = addresses["FlashLoanUserModule#FlashLoanUser"]
 
 
 
@@ -102,8 +106,8 @@ async function main() {
     const orderCreatedLogs = transactionReceipt.logs.filter(log => {
         try {
             const parsed = exchange.interface.parseLog(log);
-            let found =  parsed && parsed.name === 'OrderCreated'; 
-            if(found){
+            let found = parsed && parsed.name === 'OrderCreated';
+            if (found) {
                 console.log(`OrderCreated: order id: ${parsed.args.id}`)
             }
             return found
@@ -118,7 +122,7 @@ async function main() {
 
     // Get order id from the event logs
     // This relies on the Exchange contract emitting such an event in "makeOrder".
-    let orderId = orderCreatedLogs[0].args.id  
+    let orderId = orderCreatedLogs[0].args.id
 
     // user1 cancels his order
     transaction = await exchange.connect(user1).cancelOrder(orderId)

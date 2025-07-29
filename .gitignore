@@ -13,9 +13,12 @@ node_modules
 /coverage
 /coverage.json
 
-# Hardhat Ignition default folder for deployments against a local node
+# Hardhat Ignition deployment folders 
+# local node
 ignition/deployments/chain-31337
 # tenderly node
 ignition/deployments/chain-4
+# sepolia node
+ignition/deployments/chain-11155111
 
 node.log
