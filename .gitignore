@@ -22,3 +22,4 @@ ignition/deployments/chain-4
 ignition/deployments/chain-11155111
 
 node.log
+.DS_Store

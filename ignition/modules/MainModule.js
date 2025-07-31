@@ -7,5 +7,6 @@ module.exports = buildModule("MainModule", (m) => {
   const { DAPP, mLINK, mUSDC } = m.useModule(TokenModule);
   const { Exchange } = m.useModule(ExchangeModule);
   const { FlashLoanUser } = m.useModule(FlashLoanUserModule);
-  return { DAPP, mLINK, mUSDC, Exchange, FlashLoanUser };
+      return { DAPP: DAPP, mLINK: mLINK, mUSDC: mUSDC, Exchange: Exchange, FlashLoanUser: FlashLoanUser };
+
 });

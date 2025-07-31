@@ -12,19 +12,19 @@ function wait(seconds) {
 
 async function main() {
 
-    console.log("Network ID:", hre.network.id, "Network Name:", hre.network.name);
     const chainId = hre.network.id || (hre.network.name === "sepolia" ? 11155111 : hre.network.name === "localhost" ? 31337 : hre.network.name);
+    console.log("Network ID:", chainId, "Network Name:", hre.network.name);
+
     const chainFolder = `chain-${chainId}`;
     console.log("Using chainFolder:", chainFolder);
     const addresses = JSON.parse(await fs.readFile(`./ignition/deployments/${chainFolder}/deployed_addresses.json`, 'utf8'));
-    
+
     // Hardcoded contract addresses; these must match the actual deployment addresses on the local network for the script to work correctly.
     const DAPP_ADDRESS = addresses["TokenModule#DAPP"]
     const mUSDC_ADDRESS = addresses["TokenModule#mUSDC"]
     const mLINK_ADDRESS = addresses["TokenModule#mLINK"]
-    const EXCHANGE_ADDRESS = addresses["ExchangeModule#Exchange"]
-    const FLASH_LOAN_USER_ADDRESS = addresses["FlashLoanUserModule#FlashLoanUser"]
-
+    const EXCHANGE_ADDRESS = addresses["ExchangeModule#Exchange"];
+    const FLASH_LOAN_USER_ADDRESS = addresses["FlashLoanUserModule#FlashLoanUser"];
 
 
     // Fetch contracts into memory so javascript can transact with them
@@ -41,7 +41,7 @@ async function main() {
     const exchange = await hre.ethers.getContractAt("Exchange", EXCHANGE_ADDRESS)
     console.log(`       Exchange contract fetched: ${await exchange.getAddress()}`)
 
-    const flashLoanUser = await hre.ethers.getContractAt("FlashLoanUser", FLASH_LOAN_USER_ADDRESS)
+    const flashLoanUser = await hre.ethers.getContractAt("FlashLoanUser", FLASH_LOAN_USER_ADDRESS);
     console.log(`Flash loan user contract fetched: ${await flashLoanUser.getAddress()}\n`)
 
     // Load up accounts from wallet - these are unlocked
@@ -98,32 +98,37 @@ async function main() {
 
     // Seed a cancelled order
     // user1 makes an order to get 1 token
-    transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(1), DAPP_ADDRESS, tokens(1))
-    let transactionReceipt = await transaction.wait()
-    console.log(`Made order from ${user1.address}`)
+    transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(1), DAPP_ADDRESS, tokens(1));
+    // console.log("Order creation tx hash:", transaction.hash);
+    let transactionReceipt = await transaction.wait();
+    // console.log("Transaction receipt:", transactionReceipt);
 
     // Filter and parse logs for the OrderCreated event
     const orderCreatedLogs = transactionReceipt.logs.filter(log => {
         try {
             const parsed = exchange.interface.parseLog(log);
-            let found = parsed && parsed.name === 'OrderCreated';
+            const found = parsed && parsed.name === "OrderCreated";
             if (found) {
-                console.log(`OrderCreated: order id: ${parsed.args.id}`)
+                console.log(`OrderCreated event found: order id: ${parsed.args.id}`); //, args:`, parsed.args);
+            } else {
+                console.log("Log parsed but not OrderCreated:", parsed ? parsed.name : "unparsable");
             }
-            return found
-        } catch {
+            return found;
+        } catch (e) {
+            console.log("Log parsing error:", e, "Log:", log);
             return false;
         }
     });
 
     if (orderCreatedLogs.length === 0) {
-        throw new Error('OrderCreated event not found in transaction logs');
+        console.error("No OrderCreated events in logs. All logs:", transactionReceipt.logs);
+        throw new Error("OrderCreated event not found in transaction logs");
     }
 
     // Get order id from the event logs
     // This relies on the Exchange contract emitting such an event in "makeOrder".
-    let orderId = orderCreatedLogs[0].args.id
-
+    let orderId = orderCreatedLogs[0].args.id;
+    console.log("Extracted orderId:", orderId);
     // user1 cancels his order
     transaction = await exchange.connect(user1).cancelOrder(orderId)
     transactionReceipt = await transaction.wait()
@@ -181,15 +186,20 @@ async function main() {
 
     // Perform some flash loans
     for (let i = 1; i < 3; i++) {
-
-        transaction = await flashLoanUser.connect(user1).getFlashLoan(DAPP_ADDRESS, tokens(1000))
-        transactionReceipt = await transaction.wait()
-        console.log(`Flash loan executed from ${user1.address}`)
-
-        // wait 1 second
-        await wait(1)
+        console.log(`Attempting flash loan ${i} with ${user1.address}, token: ${DAPP_ADDRESS}, amount: ${tokens(1000).toString()}`);
+        console.log("FlashLoanUser exchange address:", await flashLoanUser.exchange); // Use getter
+        const tx = await flashLoanUser.connect(user1).getFlashLoan(DAPP_ADDRESS, tokens(1000));
+        // console.log("Flash loan tx hash:", tx.hash);
+        const receipt = await tx.wait();
+        // console.log("Flash loan receipt:", receipt);
+        if (receipt.status === 0) {
+            console.error("Flash loan transaction failed. Receipt:", receipt);
+            throw new Error("Flash loan execution failed");
+        }else{
+            console.log(`Flash loan executed from ${user1.address}`);
+        }
+        await wait(1);
     }
-
 
 }
 
