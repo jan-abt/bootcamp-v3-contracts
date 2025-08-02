@@ -78,8 +78,6 @@ Store api keys or private keys in config variables to be used in hardhat configu
 Hardhat variables are stored under <br>
 * `~/Library/Preferences/hardhat-nodejs/vars.json`
 
-List Key names <br>
-
  Miscelaneous
 * `npx hardhat console --network localhost`<br>
    launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
