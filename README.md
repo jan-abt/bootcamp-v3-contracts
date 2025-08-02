@@ -54,6 +54,7 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
   decentralized application front-ends (DApp), or scripts can connect to the local blockchain.
 * Generates a set of predefined Ethereum accounts, each pre-funded with a large amount of ETH (typically 10,000 ETH per account) for testing purposes.
 * Use `Ctrl C` or `npx kill-port 8545` to shut down.
+* Use `lsof -ti tcp:8545` to search for the process id, and  `kill -9 <pid>` to shut it down manually, if needed.
 
 #### `npx hardhat ignition deploy ignition/modules/<my-token-contract-module>.js --network localhost`
 * Recompiles the contract(s).
@@ -69,3 +70,32 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
 
 #### `npx hardhat console --network localhost`
 * launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
+
+##### Other
+Store api keys or private keys in config variables to be used in hardhat configuration files<br>
+* `npx hardhat vars set MY_KEY`
+
+Hardhat variables are stored under <br>
+* `~/Library/Preferences/hardhat-nodejs/vars.json`
+
+List Key names <br>
+
+ Miscelaneous
+* `npx hardhat console --network localhost`<br>
+   launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
+* `npx hardhat vars list`
+   list the varialbes stored in `vars.json`
+* `npx hardhat test`<br>
+   run tests under `/test`
+* `REPORT_GAS=true npx hardhat test` <br>
+   instruct the Hardhat test runner to measure and display gas used by each transaction of each test
+* `npx hardhat help`   
+
+
+
+<br>
+<br>
+
+More: [hardhat-tutorial](https://hardhat.org/tutorial/deploying-to-a-live-network)
+
+
