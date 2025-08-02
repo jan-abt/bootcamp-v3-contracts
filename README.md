@@ -71,23 +71,24 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
 #### `npx hardhat console --network localhost`
 * launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
 
-##### Other
-Store api keys or private keys in config variables to be used in hardhat configuration files<br>
-* `npx hardhat vars set MY_KEY`
-
-Hardhat variables are stored under <br>
-* `~/Library/Preferences/hardhat-nodejs/vars.json`
 
  Miscelaneous
 * `npx hardhat console --network localhost`<br>
    launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
-* `npx hardhat vars list`
+* `npx hardhat vars list` <br>
    list the varialbes stored in `vars.json`
 * `npx hardhat test`<br>
    run tests under `/test`
 * `REPORT_GAS=true npx hardhat test` <br>
    instruct the Hardhat test runner to measure and display gas used by each transaction of each test
-* `npx hardhat help`   
+* `npx hardhat vars set MY_KEY` <br>
+   Command to store api keys, private keys or any other keys as config variables to be referenced in the code, e.g.,
+   ```js 
+    const { vars } = require("hardhat/config");
+    const myKey = vars.get("MY_KEY", "");
+   ```
+* `~/Library/Preferences/hardhat-nodejs/vars.json` <br>
+   Default location wher Hardhat variables are stored
 
 
 
