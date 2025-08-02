@@ -82,13 +82,13 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
 * `REPORT_GAS=true npx hardhat test` <br>
    instruct the Hardhat test runner to measure and display gas used by each transaction of each test
 * `npx hardhat vars set MY_KEY` <br>
-   Command to store api keys, private keys or any other keys as config variables to be referenced in the code, e.g.,
+   Command to store api keys, private keys or any other keys as variables to be referenced in the code, e.g.
    ```js 
     const { vars } = require("hardhat/config");
     const myKey = vars.get("MY_KEY", "");
    ```
 * `~/Library/Preferences/hardhat-nodejs/vars.json` <br>
-   Default location wher Hardhat variables are stored
+   The location, where Hardhat variables are stored.
 
 
 
