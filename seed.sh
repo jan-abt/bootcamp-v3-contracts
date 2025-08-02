@@ -6,7 +6,7 @@ ENV=${1:-dev}
 printf "\n  Running seed script for $ENV.\n\n"
 
 # Check account balances
-printf "\nChecking account balances on $ENV network\n"
+printf "\Displaying initial account balances on $ENV network\n\n"
 
 if [ "$ENV" = "dev" ]; then
   npx hardhat accounts  --network localhost
