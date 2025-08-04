@@ -66,11 +66,20 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
 #### `npx hardhat run scripts/seed.js --network localhost`
 * Funds the exchange and user accounts using the deployed contracts.
 
+#### `rm -rf ./ignition/deployments/chain-*`
+* remove generated deployments
+
 #### `npx hardhat clean && npx hardhat compile`
 * Cleans up and recompiles contracts.
 
 #### `npx hardhat console --network localhost`
 * launches an interactive JavaScript REPL (Read-Eval-Print Loop) console within the Hardhat project
+
+#### `./deploy.sh` `dev`|`prod`
+* deploy contracts on local hardhat or public sepolia test chain
+
+#### `./seed.sh` `dev`|`prod`
+*  execute token transfers, approvals, deposits, and order seeding (including cancellation and filling).
 
 
  Miscelaneous

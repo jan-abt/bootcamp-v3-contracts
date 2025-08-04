@@ -156,7 +156,7 @@ async function main() {
   }
 
   // Check ETH balances on Sepolia
-  const minEth = ethers.parseEther("0.1");
+  const minEth = ethers.parseEther("0.01");
   if (chainId === 11155111) {
     const user1Balance = await ethers.provider.getBalance(user1.address);
     if (user1Balance < minEth) {
@@ -236,11 +236,7 @@ async function main() {
   await safeExecute("Transfer 2 DAPP to FlashLoanUser for fees", dapp.transfer(FLASH_LOAN_USER_ADDRESS, tokens(2)), errorIface);
   console.log("FlashLoanUser DAPP balance:", ethers.formatUnits(await dapp.balanceOf(FLASH_LOAN_USER_ADDRESS), 18));
 
-  // Approval from FlashLoanUser: Add approveToken method in FlashLoanUser.sol and call it
-  // In FlashLoanUser.sol, add:
-  // function approveToken(address _token, address _spender, uint256 _amount) external {
-  //   IERC20(_token).approve(_spender, _amount);
-  // }
+  
   await safeExecute("Approve Exchange to spend 2 DAPP for FlashLoanUser", flashLoanUser.approveToken(DAPP_ADDRESS, EXCHANGE_ADDRESS, tokens(2)), errorIface);
   console.log("FlashLoanUser DAPP allowance for Exchange:", ethers.formatUnits(await dapp.allowance(FLASH_LOAN_USER_ADDRESS, EXCHANGE_ADDRESS), 18));
 
