@@ -182,3 +182,4 @@ Ethereum addresses are either **Externally Owned Accounts (EOAs)** or **Contract
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Vercel](https://vercel.com/jan-abts-projects/bootcamp-v3-interface/deployments)
 - [Sepolia ETH Faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
+- [Metamask Developer API-Keys](https://developer.metamask.io/)
