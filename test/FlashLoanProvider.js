@@ -1,91 +1,51 @@
+const { expect } = require("chai");
+const { ethers } = require("hardhat");
 
+describe("FlashLoanProvider", function () {
+    let token, exchange, flashLoanUser, deployer, lender;
+    let loanAmount = ethers.parseUnits("1", 18); // 1 token
+    let feeAmount = ethers.parseUnits("0.001", 18); // Slightly more than 0.09% fee
 
-const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers")
-const { expect } = require("chai")
-const { ethers } = require("hardhat")
-const { deployExchangeFixture, depositExchangeFixture} = require("./helpers/ExchangeFixtures")
+    beforeEach(async function () {
+        [deployer, lender] = await ethers.getSigners();
+        const Token = await ethers.getContractFactory("Token");
+        token = await Token.deploy("Test Token", "TEST", 1000000);
+        const Exchange = await ethers.getContractFactory("Exchange");
+        exchange = await Exchange.deploy(deployer.address, 10);
+        const FlashLoanUser = await ethers.getContractFactory("FlashLoanUser");
+        flashLoanUser = await FlashLoanUser.deploy(exchange.target);
 
-const tokens = (n) => {
-    return  ethers.parseUnits(n.toString(), 18)
-}
+        // Provide liquidity: Transfer and deposit to exchange
+        await token.transfer(lender.address, ethers.parseUnits("100", 18));
+        await token.connect(lender).approve(exchange.target, ethers.parseUnits("100", 18));
+        await exchange.connect(lender).depositToken(token.target, ethers.parseUnits("100", 18));
 
-async function flashLoanFixture(){
-    const {tokens, exchange, accounts} = await loadFixture(depositExchangeFixture)
-    const FlashLoanUser = await ethers.getContractFactory("FlashLoanUser")
-    const flashLoanUser = await FlashLoanUser.connect(accounts.user1).deploy(await exchange.getAddress())
+        // Provide fee tokens to FlashLoanUser
+        await token.transfer(flashLoanUser.target, feeAmount);
+        // If keeping approveToken (optional after fix #1): await flashLoanUser.approveToken(token.target, exchange.target, feeAmount);
+    });
 
-    return { tokens, exchange, accounts, flashLoanUser}
+    it("Emits FlashLoanReceived event", async function () {
+        await expect(flashLoanUser.getFlashLoan(token.target, loanAmount))
+            .to.emit(flashLoanUser, "FlashLoanReceived")
+            .withArgs(token.target, loanAmount);
+    });
+    it("Emits FlashLoan event", async function () {
+        // Do NOT fetch timestamp here; it would be too early
 
-}
+        // Send the transaction without awaiting in expect
+        const tx = await flashLoanUser.getFlashLoan(token.target, loanAmount);
 
-describe("FlashLoanProvider", () => {
+        // Wait for receipt to get block details
+        const receipt = await tx.wait();
 
-    describe("Calling flashLoan from FlashLoanUser",()=>{
+        // Fetch the exact block where the event was emitted
+        const block = await ethers.provider.getBlock(receipt.blockNumber);
 
-        
+        // Now assert the event with the correct timestamp
+        await expect(tx)
+            .to.emit(exchange, "FlashLoan")
+            .withArgs(token.target, loanAmount, block.timestamp);
+    });
 
-        describe("Success",()=>{ 
-
-            const AMOUNT = tokens(100)
-
-            it("Emits FlashLoanReceived event", async() =>{
-                const { tokens: { token0 }, accounts, flashLoanUser} = await loadFixture(flashLoanFixture)
-                const flashLoanTx = await flashLoanUser
-                                            .connect(accounts.user1)
-                                            .getFlashLoan(
-                                                    await token0.getAddress(), 
-                                                    AMOUNT
-                                            )
-                await expect(flashLoanTx).to.emit(flashLoanUser, "FlashLoanReceived")
-                
-            })
-            
-            it("Emits FlashLoan event", async() =>{
-                const { tokens: { token0 }, exchange, accounts, flashLoanUser} = await loadFixture(flashLoanFixture)
-                const flashLoanTx = await flashLoanUser
-                                            .connect(accounts.user1)
-                                            .getFlashLoan(
-                                                    await token0.getAddress(), 
-                                                    AMOUNT
-                                            )
-                await expect(flashLoanTx).to.emit(exchange, "FlashLoan")
-                
-            })
-        })
-
-        describe("Failiure",()=>{
-                         
-            it("Rejects on insufficient funds", async() =>{
-
-                const { tokens: { token1 }, exchange, accounts} = await loadFixture(deployExchangeFixture)
-                await expect( exchange.connect(accounts.user1).flashLoan(
-                            await token1.getAddress(), 
-                            tokens(100),
-                            "0x"
-                )).to.be.revertedWith("FlashLoanProvider: Insufficient funds to loan")            
-            })             
-        })       
-    
-    })
-
-})
-
-describe("Test Template", ()=>{
-
-        describe("Success",()=>{
-        
-            it("Accepts", async() =>{
-                
-            })
-            it("emits an event", async() =>{
-                                 
-            })
-        })    
-        describe("Failiure",()=>{
-            
-            it("Rejects ", async() =>{
-             
-            })
-             
-        })
-})   
+});

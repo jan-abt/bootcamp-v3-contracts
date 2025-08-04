@@ -51,20 +51,18 @@ contract FlashLoanUser {
     }
 
     function receiveFlashLoan(
-        address _token,
-        uint256 _amount,
-        bytes calldata
-    ) external onlyExchange {
-        emit FlashLoanReceived(_token, _amount);
-        uint256 fee = (_amount * 9) / 10000; // 0.09%
-        uint256 total = _amount + fee;
-        IERC20 token = IERC20(_token);
-        if (token.balanceOf(address(this)) < total)
-            revert InsufficientBalance();
-        if (token.allowance(address(this), exchange) < total)
-            revert InsufficientAllowance();
-        bool success = token.transfer(exchange, total);
-        if (!success) revert TransferFailed();
-    }
-
+    address _token,
+    uint256 _amount,
+    bytes calldata
+) external onlyExchange {
+    emit FlashLoanReceived(_token, _amount);
+    uint256 fee = (_amount * 9) / 10000; // 0.09%
+    uint256 total = _amount + fee;
+    IERC20 token = IERC20(_token);
+    if (token.balanceOf(address(this)) < total)
+        revert InsufficientBalance();
+    // Remove: if (token.allowance(address(this), exchange) < total) revert InsufficientAllowance();
+    bool success = token.transfer(exchange, total);
+    if (!success) revert TransferFailed();
+}
 }
