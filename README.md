@@ -175,35 +175,10 @@ Ethereum addresses are either **Externally Owned Accounts (EOAs)** or **Contract
     npx hardhat verify --network sepolia 0x... 0x...
     ```
 
-## Troubleshooting
-- **Insufficient ETH on Sepolia**:
-  - Fund accounts with ~0.5 ETH each:
-    - Deployer: 0xE8Df33aA64A5C1390C3c9a3Bf54C47B6AD0d69e5
-    - User1: 0xD060832862f2A0207ABF9cEd0ecd16907C354b45
-    - User2: 0x90F79bf6EB2c4f870365E785982E1f101E93b906
-  - Use faucets: [sepoliafaucet.com](https://sepoliafaucet.com/), [Alchemy](https://www.alchemy.com/faucets/ethereum-sepolia), [faucetlink.to/sepolia](https://faucetlink.to/sepolia).
-- **TransferFailed() in Flash Loans**:
-  - Check `Token.sol` for non-standard ERC-20 behavior (e.g., missing `bool` return, restrictions).
-  - Ensure `Exchange.sol`’s `flashLoan` transfers tokens correctly to `FlashLoanUser`.
-  - Verify `approveToken` sets allowance (use debug events in `FlashLoanUser.sol`).
-- **Contract Deployment Issues**:
-  - Clear deployment state: `rm -rf ./ignition/deployments/chain-*`.
-  - Recompile and redeploy: `npx hardhat clean && npx hardhat compile && ./deploy.sh dev|prod`.
-- **Frontend Issues**:
-  - Ensure `globals.js` matches `deployed_addresses.json` and `.env.local`/`.env.production`.
-  - Check MetaMask is connected to the correct network (Hardhat: localhost:8545, Sepolia: RPC URL).
-
 ## Additional Resources
 - [Hardhat Tutorial: Deploying to a Live Network](https://hardhat.org/tutorial/deploying-to-a-live-network)
 - [Hardhat Ignition Documentation](https://hardhat.org/ignition)
 - [Ethers.js Documentation](https://docs.ethers.org/v6/)
 - [Next.js Documentation](https://nextjs.org/docs)
-```
-
-
-### Next Steps
-- Replace the existing `README.md` with this version.
-- Fund Sepolia accounts to 0.05 ETH each, as outlined.
-- Run `./seed.sh prod` after funding and share the output, especially flash loan results or errors.
-- If `TransferFailed()` persists, provide `Token.sol` and `Exchange.sol` for further analysis.
-
+- [Vercel](https://vercel.com/jan-abts-projects/bootcamp-v3-interface/deployments)
+- [Sepolia ETH Faucet](https://cloud.google.com/application/web3/faucet/ethereum/sepolia)
