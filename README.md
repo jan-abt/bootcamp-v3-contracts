@@ -24,7 +24,7 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
   - Hold ETH balances <br>
     (e.g., `9999.991 ETH` for `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`).
   - Used to initiate transactions, such as deploying contracts or interacting with the DEX <br>
-    (e.g., transferring tokens in `seed.js`).
+    (e.g., approving, signing transactions, transferring tokens in `seed.js`).
   - Hardhat's `npx hardhat node` generates 20 pre-funded EOAs for testing <br>
     (e.g., `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, `0x70997970C51812dc3A010C7d01b50e0d17dc79C8`). <br>
     These are listed with balances when the node starts.
@@ -33,6 +33,7 @@ In Ethereum, addresses represent either **`Externally Owned Accounts (EOAs)`** o
 - **Contract Addresses**:
   - Represent deployed smart contracts (e.g., `Token`, `Exchange`, `FlashLoanUser`).
   - Store executable code and state (e.g., token balances, order book data) but can't initiate transactions independently.
+  - CAnnot sign transactions
   - Generated when deploying contracts via `npx hardhat ignition deploy`.<br>
     Stored in `./ignition/deployments/chain-31337/deployed_addresses.json`, (e.g., `TokenModule#DAPP: 0x5FbDB2315678afecb367f032d93F642f64180aa3`).
   - Used in `globals.js` (e.g., `DAPP_ADDRESS`, `EXCHANGE_ADDRESS`) to connect the frontend to contracts.

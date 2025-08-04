@@ -10,13 +10,11 @@ module.exports = buildModule("ExchangeModule", (m) => {
   const FEE_ACCOUNT =  m.getAccount(1)
   const FEE_PERCENT =  10
   
-  
   const exchange = m.contract(
     "Exchange", 
     [FEE_ACCOUNT, FEE_PERCENT], 
     {from: DEPLOYER}
   );
+  return { Exchange: exchange };
   
-  
-  return { exchange};
 });

@@ -1,209 +1,275 @@
 const fs = require('fs').promises;
-const hre = require("hardhat")
+const hre = require("hardhat");
 
+const ethers = hre.ethers;
+
+// Helper to convert to wei (18 decimals for ERC-20 tokens)
 const tokens = (n) => {
-    return ethers.parseUnits(n.toString(), 18)  // Helper function to convert a number to wei-equivalent with 18 decimal places (standard for ERC-20 tokens).
+  return ethers.parseUnits(n.toString(), 18);
+};
+
+// Async delay for pacing transactions (longer on Sepolia)
+function wait(seconds) {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
 }
 
-function wait(seconds) {
-    const milliseconds = seconds * 1000
-    return new Promise(resolve => setTimeout(resolve, milliseconds))  // Simple async delay function using setTimeout for pacing transactions.
+// Safe transaction execution with revert reason logging
+async function safeExecute(description, txPromise, iface) {
+  try {
+    const tx = await txPromise;
+    const receipt = await tx.wait();
+    console.log(`${description} succeeded (tx: ${tx.hash})`);
+    return receipt;
+  } catch (error) {
+    console.error(`${description} failed:`, error);
+    if (error.reason) console.log("Revert reason:", error.reason);
+    let revertData = error.data;
+    if (error.data && error.data.data) revertData = error.data.data; // Nested in ProviderError
+    if (revertData && iface) {
+      console.log("Revert data:", revertData);
+      try {
+        const decoded = iface.parseError(revertData);
+        console.log("Decoded error:", decoded.name, decoded.args);
+      } catch (decodeError) {
+        console.error("Could not decode error:", decodeError);
+      }
+    }
+    console.error("Stack trace:", error.stack);
+    process.exit(1);
+  }
 }
 
 async function main() {
+  // Determine chain ID and network
+  const chainId = hre.network.config.chainId || (hre.network.name === "sepolia" ? 11155111 : hre.network.name === "localhost" ? 31337 : hre.network.name);
+  console.log("Network ID:", chainId, "Network Name:", hre.network.name);
 
-    const chainId = hre.network.id || (hre.network.name === "sepolia" ? 11155111 : hre.network.name === "localhost" ? 31337 : hre.network.name);
-    console.log("Network ID:", chainId, "Network Name:", hre.network.name);
+  // Define delay early
+  const delay = chainId === 11155111 ? 15 : 1;
 
-    const chainFolder = `chain-${chainId}`;
-    console.log("Using chainFolder:", chainFolder);
-    const addresses = JSON.parse(await fs.readFile(`./ignition/deployments/${chainFolder}/deployed_addresses.json`, 'utf8'));
+  // Load deployed addresses
+  const chainFolder = `chain-${chainId}`;
+  console.log("Using chainFolder:", chainFolder);
+  let addresses;
+  try {
+    addresses = JSON.parse(await fs.readFile(`./ignition/deployments/${chainFolder}/deployed_addresses.json`, 'utf8'));
+  } catch (error) {
+    console.error("Failed to read deployed_addresses.json:", error);
+    process.exit(1);
+  }
 
-    // Hardcoded contract addresses; these must match the actual deployment addresses on the local network for the script to work correctly.
-    const DAPP_ADDRESS = addresses["TokenModule#DAPP"]
-    const mUSDC_ADDRESS = addresses["TokenModule#mUSDC"]
-    const mLINK_ADDRESS = addresses["TokenModule#mLINK"]
-    const EXCHANGE_ADDRESS = addresses["ExchangeModule#Exchange"];
-    const FLASH_LOAN_USER_ADDRESS = addresses["FlashLoanUserModule#FlashLoanUser"];
+  // Contract addresses
+  const DAPP_ADDRESS = addresses["TokenModule#DAPP"];
+  const mUSDC_ADDRESS = addresses["TokenModule#mUSDC"];
+  const mLINK_ADDRESS = addresses["TokenModule#mLINK"];
+  const EXCHANGE_ADDRESS = addresses["ExchangeModule#Exchange"];
+  const FLASH_LOAN_USER_ADDRESS = addresses["FlashLoanUserModule#FlashLoanUser"];
 
+  // Load ABIs explicitly
+  let TokenABI, ExchangeABI, FlashLoanUserABI;
+  try {
+    TokenABI = require("../artifacts/contracts/Token.sol/Token.json").abi;
+    ExchangeABI = require("../artifacts/contracts/Exchange.sol/Exchange.json").abi;
+    FlashLoanUserABI = require("../artifacts/contracts/FlashLoanUser.sol/FlashLoanUser.json").abi;
+  } catch (error) {
+    console.error("Failed to load ABIs. Run 'npx hardhat clean && npx hardhat compile':", error);
+    process.exit(1);
+  }
 
-    // Fetch contracts into memory so javascript can transact with them
-    // These use Hardhat's ethers library to attach to existing contracts at the specified addresses.
-    const dapp = await hre.ethers.getContractAt("Token", DAPP_ADDRESS)
-    console.log(`          Token contract fetched: ${await dapp.getAddress()}`)
+  // Validate ABIs
+  if (!TokenABI.length || !ExchangeABI.length || !FlashLoanUserABI.length) {
+    console.error("One or more ABIs are empty. Recompile contracts.");
+    process.exit(1);
+  }
+  if (!FlashLoanUserABI.find(f => f.name === "getFlashLoan")) {
+    console.error("getFlashLoan not found in FlashLoanUser ABI. Check FlashLoanUser.sol.");
+    process.exit(1);
+  }
 
-    const mUSDC = await hre.ethers.getContractAt("Token", mUSDC_ADDRESS)
-    console.log(`          Token contract fetched: ${await mUSDC.getAddress()}`)
+  // Error interface for decoding reverts
+  const errorIface = new ethers.Interface([
+    "error NotExchange()",
+    "error TransferFailed()",
+    "error InsufficientBalance()",
+    "error InsufficientAllowance()",
+    // Common ERC-20 errors
+    "error InsufficientBalance(address sender, uint256 balance, uint256 needed)",
+    "error InsufficientAllowance(address sender, uint256 allowance, uint256 needed)"
+  ]);
 
-    const mLINK = await hre.ethers.getContractAt("Token", mLINK_ADDRESS)
-    console.log(`          Token contract fetched: ${await mLINK.getAddress()}`)
+  // Load accounts early
+  const accounts = await ethers.getSigners();
+  const deployer = accounts[0];
+  const collector = accounts[1];
+  const user1 = accounts[2];
+  const user2 = accounts[3];
 
-    const exchange = await hre.ethers.getContractAt("Exchange", EXCHANGE_ADDRESS)
-    console.log(`       Exchange contract fetched: ${await exchange.getAddress()}`)
+  // Instantiate contracts with deployer as signer (for sending transactions)
+  const dapp = new ethers.Contract(DAPP_ADDRESS, TokenABI, deployer);
+  console.log(`Token contract fetched: ${await dapp.getAddress()}`);
 
-    const flashLoanUser = await hre.ethers.getContractAt("FlashLoanUser", FLASH_LOAN_USER_ADDRESS);
-    console.log(`Flash loan user contract fetched: ${await flashLoanUser.getAddress()}\n`)
+  const mUSDC = new ethers.Contract(mUSDC_ADDRESS, TokenABI, deployer);
+  console.log(`Token contract fetched: ${await mUSDC.getAddress()}`);
 
-    // Load up accounts from wallet - these are unlocked
-    // Retrieves the list of signers (test accounts) from the local Hardhat network, which are pre-funded with ETH.
-    const accounts = await hre.ethers.getSigners()
+  const mLINK = new ethers.Contract(mLINK_ADDRESS, TokenABI, deployer);
+  console.log(`Token contract fetched: ${await mLINK.getAddress()}`);
 
-    // This is the main account who deploys
-    const deployer = accounts[0]
+  const exchange = new ethers.Contract(EXCHANGE_ADDRESS, ExchangeABI, deployer);
+  console.log(`Exchange contract fetched: ${await exchange.getAddress()}`);
 
-    // This is who collects fees from the exchange
-    const collector = accounts[1]
+  const flashLoanUser = new ethers.Contract(FLASH_LOAN_USER_ADDRESS, FlashLoanUserABI, deployer);
+  console.log(`Flash loan user contract fetched: ${await flashLoanUser.getAddress()}\n`);
 
-    // These represent regular users
-    const user1 = accounts[2]
-    const user2 = accounts[3]
+  // Debug contract instance
+  console.log("Ethers version:", ethers.version);
+  const functionNames = [];
+  flashLoanUser.interface.forEachFunction((func) => functionNames.push(func.format()));
+  console.log("FlashLoanUser ABI functions:", functionNames);
+  console.log("Interface properties:", Object.keys(flashLoanUser.interface));
+  console.log("Contract instance properties:", Object.keys(flashLoanUser));
 
+  // Verify bytecode
+  const code = await ethers.provider.getCode(FLASH_LOAN_USER_ADDRESS);
+  if (code === "0x") {
+    console.error(`No contract deployed at ${FLASH_LOAN_USER_ADDRESS}. Redeploy.`);
+    process.exit(1);
+  }
+  console.log("Bytecode present at FlashLoanUser address.");
 
-    // Distribute tokens to users
-    const AMOUNT = 100000
-    let transation  // Typo: should be 'transaction' (but doesn't affect functionality).
-
-    // Deployer gets the entire balance, will transfer to other people
-
-    // Deployer transfers 100,000 DAPP to user1
-    transaction = await dapp.connect(deployer).transfer(user1.address, tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`Transferred ${AMOUNT} tokens from ${deployer.address} to ${user1.address}`)
-
-    // Deployer transfers 100,000 mUSDC to user2
-    transaction = await mUSDC.connect(deployer).transfer(user2.address, tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`Transferred ${AMOUNT} tokens from ${deployer.address} to ${user2.address}`)
-
-    // Users deposit their tokens into the exchange
-    // user1 approves 100,000 DAPP to be deposited in the exchange
-    transaction = await dapp.connect(user1).approve(await exchange.getAddress(), tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`\nApproved ${AMOUNT} DAPP from ${user1.address}`)
-
-    // user1 deposits 100,000 DAPP in the exchange
-    transaction = await exchange.connect(user1).depositToken(DAPP_ADDRESS, tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`Deposited ${AMOUNT} DAPP from ${user1.address}`)
-
-    // user2 approves 100,000 mUSDC to be deposited in the exchange
-    transaction = await mUSDC.connect(user2).approve(await exchange.getAddress(), tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`\nApproved ${AMOUNT} mUSDC from ${user2.address}`)
-
-    // user2 deposits 100,000 mUSDC in the exchange
-    transaction = await exchange.connect(user2).depositToken(mUSDC_ADDRESS, tokens(AMOUNT))
-    await transaction.wait()
-    console.log(`Deposited ${AMOUNT} mUSDC from ${user2.address}\n`)
-
-    // Seed a cancelled order
-    // user1 makes an order to get 1 token
-    transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(1), DAPP_ADDRESS, tokens(1));
-    // console.log("Order creation tx hash:", transaction.hash);
-    let transactionReceipt = await transaction.wait();
-    // console.log("Transaction receipt:", transactionReceipt);
-
-    // Filter and parse logs for the OrderCreated event
-    const orderCreatedLogs = transactionReceipt.logs.filter(log => {
-        try {
-            const parsed = exchange.interface.parseLog(log);
-            const found = parsed && parsed.name === "OrderCreated";
-            if (found) {
-                console.log(`OrderCreated event found: order id: ${parsed.args.id}`); //, args:`, parsed.args);
-            } else {
-                console.log("Log parsed but not OrderCreated:", parsed ? parsed.name : "unparsable");
-            }
-            return found;
-        } catch (e) {
-            console.log("Log parsing error:", e, "Log:", log);
-            return false;
-        }
-    });
-
-    if (orderCreatedLogs.length === 0) {
-        console.error("No OrderCreated events in logs. All logs:", transactionReceipt.logs);
-        throw new Error("OrderCreated event not found in transaction logs");
+  // Validate exchange address
+  let exchangeAddr;
+  try {
+    exchangeAddr = await flashLoanUser.exchange();
+    console.log("Exchange address from contract:", exchangeAddr);
+  } catch (e) {
+    console.warn("Failed to fetch exchange address; trying exchange():", e.message);
+    try {
+      exchangeAddr = await flashLoanUser.exchange();
+      console.log("Exchange address from getExchange:", exchangeAddr);
+    } catch (e2) {
+      console.warn("getExchange failed; using EXCHANGE_ADDRESS:", EXCHANGE_ADDRESS);
+      exchangeAddr = EXCHANGE_ADDRESS;
     }
+  }
+  if (exchangeAddr.toLowerCase() !== EXCHANGE_ADDRESS.toLowerCase()) {
+    console.warn(`Exchange address mismatch. Expected: ${EXCHANGE_ADDRESS}, Got: ${exchangeAddr}. Continuing with fallback.`);
+  }
 
-    // Get order id from the event logs
-    // This relies on the Exchange contract emitting such an event in "makeOrder".
-    let orderId = orderCreatedLogs[0].args.id;
-    console.log("Extracted orderId:", orderId);
-    // user1 cancels his order
-    transaction = await exchange.connect(user1).cancelOrder(orderId)
-    transactionReceipt = await transaction.wait()
-    console.log(`Cancelled order from ${user1.address}\n`)
-
-    // wait 1 second
-    await wait(1)
-
-    // Fill some orders
-    for (let i = 1; i <= 3; i++) {
-
-        // user1 makes an order to get tokens
-        transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(10), DAPP_ADDRESS, tokens(10 * i))
-        transactionReceipt = await transaction.wait()
-        console.log(`Made order from ${user1.address}`)
-
-        // Get order id from the event logs
-        orderId = transactionReceipt.logs[0].args.id
-
-        // user2 fills order
-        transaction = await exchange.connect(user2).fillOrder(orderId)
-        transactionReceipt = await transaction.wait()
-        console.log(`Filled order from ${user2.address}\n`)
-
-        // wait 1 second
-        await wait(1)
+  // Check ETH balances on Sepolia
+  const minEth = ethers.parseEther("0.1");
+  if (chainId === 11155111) {
+    const user1Balance = await ethers.provider.getBalance(user1.address);
+    if (user1Balance < minEth) {
+      console.error(`User1 ETH balance too low: ${ethers.formatEther(user1Balance)} ETH. Fund account.`);
+      process.exit(1);
     }
+    console.log(`User1 ETH balance: ${ethers.formatEther(user1Balance)} ETH`);
+    console.log(`Deployer ETH balance: ${ethers.formatEther(await ethers.provider.getBalance(deployer.address))} ETH`);
+  }
 
-    //user1 makes 5 orders, selling DAPP for mUSDC
-    for (let i = 1; i <= 5; i++) {
+  // Pre-check token balances
+  const deployerDappBalance = await dapp.balanceOf(deployer.address);
+  const user1DappBalance = await dapp.balanceOf(user1.address);
+  const user2MusdcBalance = await mUSDC.balanceOf(user2.address);
+  const exchangeDappBalance = await dapp.balanceOf(EXCHANGE_ADDRESS);
+  console.log("Deployer DAPP balance:", ethers.formatUnits(deployerDappBalance, 18));
+  console.log("User1 DAPP balance:", ethers.formatUnits(user1DappBalance, 18));
+  console.log("User2 mUSDC balance:", ethers.formatUnits(user2MusdcBalance, 18));
+  console.log("Exchange DAPP balance:", ethers.formatUnits(exchangeDappBalance, 18));
 
-        transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(10 * i), DAPP_ADDRESS, tokens(10))
-        transactionReceipt = await transaction.wait()
-        console.log(`Made order from ${user1.address}`)
+  // Validate sufficient balance for transfers
+  const AMOUNT = 100000;
+  if (deployerDappBalance < tokens(AMOUNT)) {
+    console.error(`Deployer DAPP balance too low: ${ethers.formatUnits(deployerDappBalance, 18)} < ${AMOUNT}`);
+    process.exit(1);
+  }
+  if (await mUSDC.balanceOf(deployer.address) < tokens(AMOUNT)) {
+    console.error(`Deployer mUSDC balance too low: ${ethers.formatUnits(await mUSDC.balanceOf(deployer.address), 18)} < ${AMOUNT}`);
+    process.exit(1);
+  }
 
-        // wait 1 second
-        await wait(1)
+  // Distribute tokens
+  await safeExecute(`Transfer ${AMOUNT} DAPP to ${user1.address}`, dapp.transfer(user1.address, tokens(AMOUNT)), errorIface);
+  await safeExecute(`Transfer ${AMOUNT} mUSDC to ${user2.address}`, mUSDC.transfer(user2.address, tokens(AMOUNT)), errorIface);
+
+  // Approvals and deposits
+  await safeExecute(`Approve ${AMOUNT} DAPP for exchange from ${user1.address}`, dapp.connect(user1).approve(EXCHANGE_ADDRESS, tokens(AMOUNT)), errorIface);
+  await safeExecute(`Deposit ${AMOUNT} DAPP from ${user1.address}`, exchange.connect(user1).depositToken(DAPP_ADDRESS, tokens(AMOUNT)), errorIface);
+  await safeExecute(`Approve ${AMOUNT} mUSDC for exchange from ${user2.address}`, mUSDC.connect(user2).approve(EXCHANGE_ADDRESS, tokens(AMOUNT)), errorIface);
+  await safeExecute(`Deposit ${AMOUNT} mUSDC from ${user2.address}`, exchange.connect(user2).depositToken(mUSDC_ADDRESS, tokens(AMOUNT)), errorIface);
+
+  // Seed a cancelled order
+  let transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(1), DAPP_ADDRESS, tokens(1));
+  let receipt = await safeExecute("Make order for cancellation", transaction, errorIface);
+  const orderCreatedLogs = receipt.logs.filter(log => exchange.interface.parseLog(log)?.name === "OrderCreated");
+  if (orderCreatedLogs.length === 0) {
+    console.error("No OrderCreated event found.");
+    process.exit(1);
+  }
+  let orderId = orderCreatedLogs[0].args.id;
+  console.log("Extracted orderId:", orderId);
+  await safeExecute(`Cancel order ${orderId} from ${user1.address}`, exchange.connect(user1).cancelOrder(orderId), errorIface);
+  await wait(delay);
+
+  // Fill orders
+  for (let i = 1; i <= 3; i++) {
+    transaction = await exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(10), DAPP_ADDRESS, tokens(10 * i));
+    receipt = await safeExecute(`Make order ${i} from ${user1.address}`, transaction, errorIface);
+    orderId = receipt.logs.filter(log => exchange.interface.parseLog(log)?.name === "OrderCreated")[0].args.id;
+    await safeExecute(`Fill order ${orderId} from ${user2.address}`, exchange.connect(user2).fillOrder(orderId), errorIface);
+    await wait(delay);
+  }
+
+  // User1 makes 5 sell orders
+  for (let i = 1; i <= 5; i++) {
+    await safeExecute(`Make sell order ${i} from ${user1.address}`, exchange.connect(user1).makeOrder(mUSDC_ADDRESS, tokens(10 * i), DAPP_ADDRESS, tokens(10)), errorIface);
+    await wait(delay);
+  }
+
+  // User2 makes 5 buy orders
+  for (let i = 1; i <= 5; i++) {
+    await safeExecute(`Make buy order ${i} from ${user2.address}`, exchange.connect(user2).makeOrder(DAPP_ADDRESS, tokens(10), mUSDC_ADDRESS, tokens(10 * i)), errorIface);
+    await wait(delay);
+  }
+
+  // Pre-fund FlashLoanUser for fees (0.9% = 0.0009 DAPP for 1 DAPP loan)
+  await safeExecute("Transfer 2 DAPP to FlashLoanUser for fees", dapp.transfer(FLASH_LOAN_USER_ADDRESS, tokens(2)), errorIface);
+  console.log("FlashLoanUser DAPP balance:", ethers.formatUnits(await dapp.balanceOf(FLASH_LOAN_USER_ADDRESS), 18));
+
+  // Approval from FlashLoanUser: Add approveToken method in FlashLoanUser.sol and call it
+  // In FlashLoanUser.sol, add:
+  // function approveToken(address _token, address _spender, uint256 _amount) external {
+  //   IERC20(_token).approve(_spender, _amount);
+  // }
+  await safeExecute("Approve Exchange to spend 2 DAPP for FlashLoanUser", flashLoanUser.approveToken(DAPP_ADDRESS, EXCHANGE_ADDRESS, tokens(2)), errorIface);
+  console.log("FlashLoanUser DAPP allowance for Exchange:", ethers.formatUnits(await dapp.allowance(FLASH_LOAN_USER_ADDRESS, EXCHANGE_ADDRESS), 18));
+
+  // Flash loans
+  for (let i = 1; i < 3; i++) {
+    console.log(`Attempting flash loan ${i} with ${user1.address}, token: ${DAPP_ADDRESS}, amount: ${tokens(1).toString()}`);
+    console.log("Exchange DAPP balance:", ethers.formatUnits(await dapp.balanceOf(EXCHANGE_ADDRESS), 18));
+    // Pre-check liquidity (loan + 0.9% fee)
+    const loanAmount = tokens(1);
+    const fee = loanAmount * 9n / 10000n; // 0.09%
+    const total = loanAmount + fee;
+    const exchangeBalance = await dapp.balanceOf(EXCHANGE_ADDRESS);
+    if (exchangeBalance < total) {
+      console.error(`Insufficient liquidity in Exchange: ${ethers.formatUnits(exchangeBalance, 18)} DAPP < ${ethers.formatUnits(total, 18)} DAPP`);
+      process.exit(1);
     }
+    console.log("Liquidity check passed.");
 
-    console.log(``)
+    // Execute with gas overrides on Sepolia
+    const txOptions = chainId === 11155111 ? { gasLimit: 1000000, gasPrice: ethers.parseUnits("2", "gwei") } : {};
+    await safeExecute(`Execute flash loan ${i} from ${user1.address}`, flashLoanUser.connect(user1).getFlashLoan(DAPP_ADDRESS, loanAmount, txOptions), errorIface);
+    await wait(delay);
+  }
 
-
-    //user2 makes 5 orders, buying DAPP for mUSDC
-    for (let i = 1; i <= 5; i++) {
-
-        transaction = await exchange.connect(user2).makeOrder(DAPP_ADDRESS, tokens(10), mUSDC_ADDRESS, tokens(10 * i))
-        transactionReceipt = await transaction.wait()
-        console.log(`Made order from ${user2.address}`)
-
-        // wait 1 second
-        await wait(1)
-    }
-
-    console.log(``)
-
-    // Perform some flash loans
-    for (let i = 1; i < 3; i++) {
-        console.log(`Attempting flash loan ${i} with ${user1.address}, token: ${DAPP_ADDRESS}, amount: ${tokens(1000).toString()}`);
-        console.log("FlashLoanUser exchange address:", await flashLoanUser.exchange); // Use getter
-        const tx = await flashLoanUser.connect(user1).getFlashLoan(DAPP_ADDRESS, tokens(1000));
-        // console.log("Flash loan tx hash:", tx.hash);
-        const receipt = await tx.wait();
-        // console.log("Flash loan receipt:", receipt);
-        if (receipt.status === 0) {
-            console.error("Flash loan transaction failed. Receipt:", receipt);
-            throw new Error("Flash loan execution failed");
-        }else{
-            console.log(`Flash loan executed from ${user1.address}`);
-        }
-        await wait(1);
-    }
-
+  console.log("Seeding completed successfully.");
 }
 
 main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-})
+  console.error("Seeding failed:", error);
+  console.error("Stack trace:", error.stack);
+  process.exitCode = 1;
+});

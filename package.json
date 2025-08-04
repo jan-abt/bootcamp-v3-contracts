@@ -1,8 +1,9 @@
 {
   "name": "bootcamp-v3-contracts",
   "devDependencies": {
-    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.14",
-    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
-    "hardhat": "^2.26.1"
+   "@nomicfoundation/hardhat-ignition-ethers": "^0.15.14",
+  "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+  "hardhat": "^2.26.1",
+  "ethers": "^6.13.2" 
   }
 }

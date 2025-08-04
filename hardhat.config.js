@@ -13,8 +13,8 @@
  * For Vercel deployment, ensure Sepolia-related env vars (e.g., NEXT_PUBLIC_RPC_URL_SEPOLIA) are set in .env.production or Vercel’s dashboard.
  */
 
-require("@nomicfoundation/hardhat-toolbox");
 require("@nomicfoundation/hardhat-ignition-ethers");
+require("@nomicfoundation/hardhat-toolbox");
 
 const { vars } = require("hardhat/config");
 
@@ -28,6 +28,11 @@ const SEPOLIA_USER2_PRIVATE_KEY = vars.get("SEPOLIA_USER2_PRIVATE_KEY", "");
 
 module.exports = {
   solidity: "0.8.28",
+  paths: {
+    sources: "./contracts",
+    artifacts: "./artifacts",
+    cache: "./cache"
+  },
   networks: {
     localhost: {
       url: "http://127.0.0.1:8545",
